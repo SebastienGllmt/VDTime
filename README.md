@@ -18,6 +18,10 @@ These features will never be supported by design:
 
 ### API
 
+Command line args:
+- `--port`: port to use for REST API
+
+Rest endpoints:
 - `get_desktops(): <Guid, name>[]` - returns all the virtual desktops the user has
 - `get_desktop(): <Guid, name>` - returns the current virtual desktop the user is on
 - `time_on(name): string` - returns the time spent on a specific desktop by name (string)
@@ -30,6 +34,7 @@ Durations will be represented using seconds
 The core of this project is built using [IVirtualDesktopManager](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nn-shobjidl_core-ivirtualdesktopmanager?redirectedfrom=MSDN) on top of the [C# bindings](https://github.com/Slion/VirtualDesktop)
 
 Notably, we use the following methods:
+- `VirtualDesktop.Current;`
 - `VirtualDesktop.GetDesktops();`
 - `VirtualDesktop.CurrentChanged += (_, args) => Console.WriteLine($"Switched: {args.NewDesktop.Name}")`
 - `VirtualDesktop.Created += (_, desktop) => _;`

@@ -1,3 +1,5 @@
 .dotnet
 .local
 .templateengine
+bin
+obj
