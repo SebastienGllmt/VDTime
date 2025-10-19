@@ -18,12 +18,22 @@ These features will never be supported by design:
 
 ### API
 
-- `get_desktops` - returns all the virtual desktops the user has
-- `get_desktop` - returns the current virtual desktop the user is on
-- `time_on` - returns the time spent on a specific desktop by name
-- `time_all` - returns an object where the key is the virtual desktop name, and the value is the time spent
+- `get_desktops(): <Guid, name>[]` - returns all the virtual desktops the user has
+- `get_desktop(): <Guid, name>` - returns the current virtual desktop the user is on
+- `time_on(name): string` - returns the time spent on a specific desktop by name (string)
+- `time_all(): <guid, <name, string>>` - returns the time spent on all desktops
 
 Durations will be represented using seconds
+
+## Architecture
+
+The core of this project is built using [IVirtualDesktopManager](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nn-shobjidl_core-ivirtualdesktopmanager?redirectedfrom=MSDN) on top of the [C# bindings](https://github.com/Grabacr07/VirtualDesktop)
+
+Notably, we use the following methods:
+- `VirtualDesktop.GetDesktops();`
+- `VirtualDesktop.CurrentChanged += (_, args) => Console.WriteLine($"Switched: {args.NewDesktop.Name}")`
+- `VirtualDesktop.Created += (_, desktop) => _;`
+
 
 ### TODOs
 
@@ -53,8 +63,8 @@ The goal is that you can easily pin this window somewhere on your screen you can
 
 ### Before we start building
 
-- [ ] Figure out which Windows APIs we need to get started in the first place. There is a tool called SylphyHorn (https://github.com/hwtnb/SylphyHornPlusWin11) that, although much more complicated than what we want, is able to get information about the currently selected virtual desktop and when a user switches to a virtual desktop. We should be able to see its code to see which Windows APIs they used
-- [ ] Plan out the data types for our API. We need to learn more about what types the Windows API gets us. Are virtual desktops tracked with a guid? Something else? The endpoints in our API should reflect the subset of that structure that we care about
+- [x] Figure out which Windows APIs we need to get started in the first place
+- [x] Plan out the data types for our API. We need to learn more about what types the Windows API gets us. Are virtual desktops tracked with a guid? Something else? The endpoints in our API should reflect the subset of that structure that we care about
 - [ ] Figure out if there is a way to detect if the user's computer is on the lock screen so that we don't advance the timers during that time
 
 ### Once we get building
