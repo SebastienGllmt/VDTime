@@ -1,5 +1,6 @@
 .dotnet
 .local
+.vscode
 .templateengine
 bin
 obj

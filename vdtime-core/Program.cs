@@ -15,28 +15,146 @@ public class Program
         {
             var port = GetPort(args);
 
-            // Capture desktops at startup
-            var current = VirtualDesktop.Current;
-            var vdList = VirtualDesktop.GetDesktops();
+            // Current state. Should only ever be updated with the `syncLock`
             var desktops = new List<DesktopInfo>();
-            foreach (var d in vdList)
+            VirtualDesktop? cur = VirtualDesktop.Current;
+
+            var syncLock = new object();
+
+            // Initialize tracked desktops
             {
-                desktops.Add(new DesktopInfo
+                var vdList = VirtualDesktop.GetDesktops();
+                foreach (var d in vdList)
                 {
-                    Id = d.Id,
-                    Name = current.Name,
-                });
+                    desktops.Add(new DesktopInfo
+                    {
+                        Id = d.Id,
+                        Name = d.Name,
+                        TimeSpent = 0,
+                    });
+                }
             }
+
+            // Simple second-based timer to track active desktop time
+            var timer = new System.Threading.Timer(_ =>
+            {
+                try
+                {
+                    lock (syncLock)
+                    {
+                        if (cur == null) return;
+                        var idx = desktops.FindIndex(x => x.Id == cur.Id);
+                        if (idx >= 0)
+                        {
+                            var entry = desktops[idx];
+                            entry.TimeSpent += 1; // seconds
+                            desktops[idx] = entry;
+                            Console.WriteLine(desktops[idx]);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"vdtime: timer error: {ex.Message}");
+                }
+            }, null, dueTime: 1000, period: 1000);
+
+            // Listen to virtual desktop changes
+            VirtualDesktop.CurrentChanged += (_, __) =>
+            {
+                try
+                {
+                    var newCurr = VirtualDesktop.Current;
+                    lock (syncLock)
+                    {
+                        cur = newCurr;
+                    }
+                    Console.WriteLine($"Current desktop changed: {newCurr.Id} \"{newCurr.Name}\"");
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"vdtime: CurrentChanged handler error: {ex.Message}");
+                }
+            };
+
+            VirtualDesktop.Created += (_, e) =>
+            {
+                try
+                {
+                    lock (syncLock)
+                    {
+                        desktops.Add(new DesktopInfo { Id = e.Id, Name = e.Name, TimeSpent = 0 });
+                    }
+                    Console.WriteLine($"Desktop created: {e.Id} \"{e.Name}\"");
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"vdtime: Created handler error: {ex.Message}");
+                }
+            };
 
             var builder = WebApplication.CreateBuilder(args);
             builder.WebHost.UseUrls($"http://localhost:{port}");
             var app = builder.Build();
 
             app.MapGet("/healthz", () => Results.Ok("ok"));
-            app.MapGet("/get_desktops", () => Results.Json(desktops, new JsonSerializerOptions
+            app.MapGet("/get_desktops", () =>
             {
-                WriteIndented = false
-            }));
+                lock (syncLock)
+                {
+                    return Results.Json(desktops, new JsonSerializerOptions { WriteIndented = false });
+                }
+            });
+            app.MapGet("/curr_desktop", () =>
+            {
+                var cur = VirtualDesktop.Current;
+                lock (syncLock)
+                {
+                    return Results.Json(desktops.Find(desktop => desktop.Id == cur.Id), new JsonSerializerOptions { WriteIndented = false });
+                }
+            });
+            // Support both /time_on/{nameOrGuid} and /time_on?nameOrGuid=...
+            app.MapGet("/time_on/{nameOrGuid}", (string nameOrGuid) =>
+            {
+                lock (syncLock)
+                {
+                    var di = FindDesktop(desktops, nameOrGuid);
+                    if (di == null) return Results.NotFound("desktop not found");
+                    return Results.Text(di.Value.TimeSpent.ToString());
+                }
+            });
+            app.MapGet("/time_on", (HttpRequest req) =>
+            {
+                var name = req.Query["name"].ToString();
+                var guid = req.Query["guid"].ToString();
+                lock (syncLock)
+                {
+                    DesktopInfo? desktop = null;
+
+                    if (!string.IsNullOrWhiteSpace(name))
+                    {
+                        desktop = FindDesktop(desktops, name);
+                    }
+                    else if (!string.IsNullOrWhiteSpace(guid))
+                    {
+                        desktop = FindDesktop(desktops, guid);
+                    }
+                    else
+                    {
+                        return Results.BadRequest("missing name or guid");
+                    }
+                    if (desktop == null) return Results.NotFound("desktop not found");
+                    return Results.Text(desktop.Value.TimeSpent.ToString());
+                }
+            });
+            app.MapGet("/time_all", () =>
+            {
+                lock (syncLock)
+                {
+                    var payload = desktops.ToDictionary(d => d.Id, d => new { name = d.Name, time = d.TimeSpent.ToString() });
+                    return Results.Json(payload, new JsonSerializerOptions { WriteIndented = false });
+                }
+            });
 
             Console.WriteLine($"vdtime-core listening on http://localhost:{port}");
             app.Run();
@@ -66,6 +184,18 @@ public class Program
             return pe;
         return defaultPort;
     }
+
+    private static DesktopInfo? FindDesktop(List<DesktopInfo> desktops, string nameOrGuid)
+    {
+        if (Guid.TryParse(nameOrGuid, out var gid))
+        {
+            var byId = desktops.Find(d => d.Id == gid);
+            if (!byId.Equals(default(DesktopInfo))) return byId;
+        }
+        var byName = desktops.Find(d => string.Equals(d.Name, nameOrGuid, StringComparison.OrdinalIgnoreCase));
+        if (!byName.Equals(default(DesktopInfo))) return byName;
+        return null;
+    }
 }
 
 public struct DesktopInfo
@@ -73,4 +203,8 @@ public struct DesktopInfo
     public string Name { get; set; }
 
     public Guid Id { get; set; }
+
+    public UInt64 TimeSpent { get; set; }
+
+    public override string ToString() => $"{Name}({Id}) = {TimeSpent}s";
 }
