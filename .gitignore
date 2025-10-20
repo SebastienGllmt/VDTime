@@ -2,5 +2,7 @@
 .local
 .vscode
 .templateengine
+.vs
+.codex
 bin
 obj
