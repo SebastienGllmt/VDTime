@@ -14,7 +14,7 @@ This allows you to query the time-per-desktop statistics easily to compose them 
 These features will never be supported by design:
 
 - **No historical information**: VDTime Core does NOT store historical information anywhere (on disk or any remote server), and all information is lost when the application closes. It is the user's responsibility to persist the information anywhere if they are interested in doing so.
-- **Only active tracking**: VDTime Core does not track when your computer is asleep, turned off, or in the lock screen. It only actively tracks when you're using the computer.
+- **Only active tracking**: VDTime Core does not track when your computer is asleep, turned off, logged off, or in the lock screen. It only actively tracks when you're using the computer.
 - **Older versions of Windows**: We only care about developing for Windows 11, and make absolutely no effort to support older versions of Windows.
 
 ### API
@@ -54,12 +54,6 @@ The goal is that you can easily pin this window somewhere on your screen you can
 - [ ] (medium) Uses an API call to show the time spent on the currently selected desktop
 
 ## Implementation plan
-
-### Before we start building
-
-- [ ] Figure out if there is a way to detect if the user's computer is on the lock screen so that we don't advance the timers during that time
-
-### Once we get building
 
 - [ ] A simple WinUI app that does nothing but opens and can be closed
 - [ ] A simple WinUI app that has two placeholder text boxes (current monitor, time spent) just using placeholder text that updates every second based on a mock API call that returns different random data every few seconds

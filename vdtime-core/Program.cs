@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Hosting;
 using WindowsDesktop;
+using Microsoft.Win32;
 
 public class Program
 {
@@ -90,6 +91,25 @@ public class Program
                 catch (Exception ex)
                 {
                     Console.Error.WriteLine($"vdtime: Created handler error: {ex.Message}");
+                }
+            };
+
+            SystemEvents.SessionSwitch += (_, e) =>
+            {
+                if (e.Reason == SessionSwitchReason.SessionLock || e.Reason == SessionSwitchReason.SessionLogoff)
+                {
+                    lock (syncLock)
+                    {
+
+                        cur = null;
+                    }
+                }
+                else if (e.Reason == SessionSwitchReason.SessionUnlock || e.Reason == SessionSwitchReason.SessionLogon)
+                {
+                    lock (syncLock)
+                    {
+                        cur = VirtualDesktop.Current;
+                    }
                 }
             };
 
