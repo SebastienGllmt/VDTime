@@ -4,6 +4,7 @@ using WindowsDesktop;
 using WinRT;
 using System.CommandLine;
 using System.CommandLine.Parsing;
+using System.Threading;
 
 using System.Text.Json;
 using System.IO.Pipes;
@@ -15,11 +16,11 @@ public class Program
   [STAThread]
   public static int Main(string[] args)
   {
-    Option<int> portOption = new("--port")
+    Option<int?> portOption = new("--port")
     {
       Description = "Port to listen on",
     };
-    Option<string> pipeNameOption = new("--pipe")
+    Option<string?> pipeNameOption = new("--pipe")
     {
       Description = "Named pipe name to listen on",
     };
@@ -45,9 +46,20 @@ public class Program
     }
     else if (parseResult.GetValue(pipeNameOption) is string pipeName)
     {
-      // TODO
-      // StartNamedPipeServer(state, pipeName);
+      NamedPipeAdaptor.createNamedPipeAdaptor(stateManager, pipeName);
     }
-    return 1;
+    
+    // Keep the main thread alive to allow the named pipe server to run
+    if (Console.IsInputRedirected)
+    {
+      // If input is redirected (like in tests), just wait indefinitely
+      Thread.Sleep(Timeout.Infinite);
+    }
+    else
+    {
+      Console.WriteLine("Press any key to exit...");
+      Console.ReadKey();
+    }
+    return 0;
   }
 }

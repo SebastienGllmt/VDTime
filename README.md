@@ -28,12 +28,15 @@ These features will never be supported by design:
 Command line args:
 
 - `--port`: port to use for REST API
+- `--pipe`: named pipe name to use for IPC communication
 
 JSON structures:
 
 - `DesktopInfo`: `{ name: string, id: guid }`
 - `TimeInfo`: `{ current: number, total: number }`
 - `DesktopAndTime`: `{ desktop: DesktopInfo, time: TimeInfo }`
+
+### REST API
 
 Rest endpoints:
 
@@ -42,6 +45,38 @@ Rest endpoints:
 - `time_on(name | guid): uint64` - returns the time spent on a specific desktop by name or Guid
 - `time_all(): DesktopAndTime[]` - returns the time spent on all desktops
 - `reset()` - resets all timers
+
+### Named Pipes API
+
+As an alternative to the REST API, VDTime Core can also communicate via named pipes for local inter-process communication. Notably, this is used when running VDTime Core as a service on your machine (so you don't have to guess which port to query)
+
+Named pipe commands (sent as text messages):
+
+- `get_desktops` - returns JSON array of all virtual desktops
+- `curr_desktop` - returns JSON object with current desktop and time info
+- `time_on name=<desktop_name>` - returns time spent on desktop by name
+- `time_on guid=<desktop_guid>` - returns time spent on desktop by GUID
+- `time_all` - returns JSON array of all desktops with time info
+- `reset` - resets all timers (note: state modification not fully implemented in pipe mode)
+
+Example usage with PowerShell:
+
+```powershell
+# Connect to named pipe
+$pipe = New-Object System.IO.Pipes.NamedPipeClientStream(".", "vdtime-pipe", [System.IO.Pipes.PipeDirection]::InOut)
+$pipe.Connect()
+
+# Send commands
+$writer = New-Object System.IO.StreamWriter($pipe)
+$reader = New-Object System.IO.StreamReader($pipe)
+
+$writer.WriteLine("get_desktops")
+$writer.Flush()
+$response = $reader.ReadLine()
+Write-Host $response
+
+$pipe.Close()
+```
 
 Durations will be represented using seconds as a number
 
@@ -92,7 +127,8 @@ The goal is that you can easily pin this window somewhere on your screen you can
 
 ### VDTime Core only
 
-- Run in-memory: `dotnet run --project vdtime-core`
+- Run with REST API: `dotnet run --project vdtime-core -- --port 5055`
+- Run with named pipes: `dotnet run --project vdtime-core -- --pipe vdtime-pipe`
 - Run tests: `dotnet test vdtime-core.Tests/vdtime-core.Tests.csproj`
 
 ### VDTime GUI only

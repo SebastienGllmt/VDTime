@@ -140,7 +140,7 @@ public static class Reducer
     }
     catch (Exception)
     {
-      // Log error but don't use Console.WriteLine to avoid deadlocks in tests
+      // TODO: how to log error without having Console.WriteLine deadlocks tests?
       return s;
     }
   }
