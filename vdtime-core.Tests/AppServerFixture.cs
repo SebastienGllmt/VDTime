@@ -25,7 +25,7 @@ public class AppServerFixture : IAsyncLifetime
                 return r.IsSuccessStatusCode;
             }
             catch { return false; }
-        }, TimeSpan.FromSeconds(20));
+        }, TimeSpan.FromSeconds(5));
 
         if (!ready)
         {
