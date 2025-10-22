@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="Slions.VirtualDesktop" Version="6.9.2" />
+    <PackageReference Include="System.CommandLine" Version="2.0.0-rc.2.25502.107" />
   </ItemGroup>
 
   <ItemGroup>
