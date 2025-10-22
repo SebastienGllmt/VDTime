@@ -16,6 +16,7 @@ public static class NamedPipeAdaptor
         try
         {
           using var pipeServer = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Message);
+          Console.WriteLine("Waiting for connection...");
           await pipeServer.WaitForConnectionAsync();
           Console.WriteLine("Client connected to named pipe");
           
@@ -26,7 +27,9 @@ public static class NamedPipeAdaptor
           {
             try
             {
+              Console.WriteLine("Waiting for command...");
               var command = await reader.ReadLineAsync();
+              Console.WriteLine($"ReadLineAsync returned: '{command}'");
               if (string.IsNullOrEmpty(command))
               {
                 Console.WriteLine("Client disconnected (empty command)");
@@ -45,11 +48,12 @@ public static class NamedPipeAdaptor
               break;
             }
           }
+          Console.WriteLine("Exiting connection loop");
         }
         catch (Exception ex)
         {
           Console.WriteLine($"Named pipe error: {ex.Message}");
-          await Task.Delay(1000); // Wait before retrying
+          await Task.Delay(100); // Wait before retrying
         }
       }
     });
@@ -65,6 +69,9 @@ public static class NamedPipeAdaptor
 
       switch (commandName)
       {
+        case "healthz":
+          return "ok";
+
         case "get_desktops":
           var desktops = stateManager.getDesktops();
           return JsonSerializer.Serialize(desktops, new JsonSerializerOptions { WriteIndented = false });

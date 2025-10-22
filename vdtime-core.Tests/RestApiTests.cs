@@ -5,14 +5,14 @@ using System;
 using System.Net.Http;
 using Xunit;
 
-[Collection("AppServer")]
-public class GetDesktopsApiTests
+[Collection("RestServer")]
+public class RestApiTests
 {
-    private readonly AppServerFixture _fx;
-    public GetDesktopsApiTests(AppServerFixture fx) => _fx = fx;
+    private readonly RestServerFixture _fx;
+    public RestApiTests(RestServerFixture fx) => _fx = fx;
 
     [Fact]
-    public async Task Desktops()
+    public async Task AllEndpoints()
     {
         var desktops = await callGet<DesktopInfo[]>($"{_fx.BaseUrl}/get_desktops", JsonValueKind.Array);
         var currDesktop = await callGet<DesktopAndTime>($"{_fx.BaseUrl}/curr_desktop", JsonValueKind.Object);
@@ -25,6 +25,7 @@ public class GetDesktopsApiTests
         var currDesktopTimeByGuid = await callGet<UInt64>($"{_fx.BaseUrl}/time_on?guid={currDesktop.Desktop.Id}", JsonValueKind.Number);
         var currDesktopTimeByName = await callGet<UInt64>($"{_fx.BaseUrl}/time_on?name={currDesktop.Desktop.Name}", JsonValueKind.Number);
 
+        // warning: this has a slim chance of failing if both calls happen on the boundary between seconds
         Assert.Equal(currDesktopTimeByGuid, currDesktopTimeByName);
         Assert.True(currDesktopTimeByGuid > 0);
 

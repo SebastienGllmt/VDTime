@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Xunit;
 
 // Shared fixture that starts the CLI once for all tests and stops it afterwards
-public class AppServerFixture : IAsyncLifetime
+public class RestServerFixture : IAsyncLifetime
 {
     public int Port { get; private set; } = 5087;
     public string BaseUrl => $"http://localhost:{Port}";
@@ -86,6 +86,6 @@ public class AppServerFixture : IAsyncLifetime
     }
 }
 
-[CollectionDefinition("AppServer")]
-public class AppServerCollection : ICollectionFixture<AppServerFixture> { }
+[CollectionDefinition("RestServer")]
+public class RestServerCollection : ICollectionFixture<RestServerFixture> { }
 

@@ -129,7 +129,11 @@ The goal is that you can easily pin this window somewhere on your screen you can
 
 - Run with REST API: `dotnet run --project vdtime-core -- --port 5055`
 - Run with named pipes: `dotnet run --project vdtime-core -- --pipe vdtime-pipe`
-- Run tests: `dotnet test vdtime-core.Tests/vdtime-core.Tests.csproj`
+
+Run tests:
+
+- Run REST tests: `dotnet test vdtime-core.Tests/vdtime-core.Tests.csproj --filter "FullyQualifiedName=RestApiTests.AllEndpoints"`
+- Run Named Pipe tests: `dotnet test vdtime-core.Tests/vdtime-core.Tests.csproj --filter "FullyQualifiedName=NamedPipeTests.AllEndpoints"`
 
 ### VDTime GUI only
 
