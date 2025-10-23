@@ -6,7 +6,7 @@ export class PipeClient {
   private rl: readline.Interface;
   private pending: Array<(line: string) => void> = [];
 
-  constructor(pipePath: string) {
+  constructor(pipePath: string, onClose: () => void) {
     this.socket = net.createConnection(pipePath);
     this.socket.setEncoding("utf8");
     this.rl = readline.createInterface({ input: this.socket });
@@ -28,7 +28,11 @@ export class PipeClient {
       }
     };
     this.socket.on("error", failAll);
-    this.socket.on("close", () => failAll(new Error("pipe closed")));
+    this.socket.on("close", () => {
+      onClose();
+      failAll(new Error("pipe closed"));
+      this.close();
+    });
   }
 
   sendCommand(cmd: string, timeoutMs = 5000): Promise<string> {
@@ -43,20 +47,30 @@ export class PipeClient {
       };
       this.pending.push(request);
 
-      this.socket.write(cmd + "\n", "utf8", (err) => {
-        if (err) {
-          clearTimeout(timer);
-          // remove the resolver we just added
-          const idx = this.pending.indexOf(request);
-          if (idx >= 0) this.pending.splice(idx, 1);
-          reject(err);
-        }
-      });
+      const handleError = (err: unknown) => {
+        clearTimeout(timer);
+        // remove the resolver we just added
+        const idx = this.pending.indexOf(request);
+        if (idx >= 0) this.pending.splice(idx, 1);
+        reject(err);
+      };
+
+      try {
+        this.socket.write(cmd + "\n", "utf8", (err) => {
+          if (err) handleError(err);
+        });
+      } catch (err) {
+        handleError(err);
+      }
     });
   }
 
   close() {
-    this.rl.close();
-    this.socket.end();
+    try {
+      this.rl.close();
+    } catch (err) {}
+    try {
+      this.socket.end();
+    } catch (err) {}
   }
 }

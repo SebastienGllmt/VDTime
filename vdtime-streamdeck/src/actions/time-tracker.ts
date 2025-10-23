@@ -18,11 +18,15 @@ let client: PipeClient | null = null;
 streamDeck.system.onApplicationDidLaunch((ev: ApplicationDidLaunchEvent) => {
   streamDeck.logger.info(`Launch: ${ev.application}`);
 
-  client = new PipeClient(PIPE_PATH);
-
+  // if the program was already running, don't connect to the new one
+  if (pollInterval != null) {
+    return;
+  }
   pollInterval = setInterval(async () => {
     try {
-      if (client == null) return;
+      if (client == null) {
+        client = new PipeClient(PIPE_PATH, stopClient);
+      }
       const json = await client.sendCommand("time_all");
       const reply: DesktopAndTime[] = JSON.parse(json);
       streamDeck.logger.trace("reply:", reply);
@@ -34,19 +38,24 @@ streamDeck.system.onApplicationDidLaunch((ev: ApplicationDidLaunchEvent) => {
         }
       });
     } catch (err) {
-      streamDeck.logger.error("error:", err);
+      streamDeck.logger.error(err);
     }
   }, 1000);
 });
+function stopClient() {
+  if (pollInterval) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
+  client?.close();
+  client = null;
+  streamDeck.actions.forEach((action) => action.showAlert());
+  streamDeck.actions.forEach((action) => action.setTitle("Linking.."));
+}
 streamDeck.system.onApplicationDidTerminate(
   (ev: ApplicationDidTerminateEvent) => {
-    if (pollInterval) {
-      clearInterval(pollInterval);
-      pollInterval = null;
-      client = null;
-      streamDeck.actions.forEach((action) => action.showAlert());
-      streamDeck.logger.info(`Terminate: ${ev.application}`);
-    }
+    stopClient();
+    streamDeck.logger.info(`Terminate: ${ev.application}`);
   }
 );
 
@@ -60,7 +69,13 @@ export class AllTimeTracker extends SingletonAction<AllTimeTrackerSettings> {
   override async onKeyDown(
     ev: KeyDownEvent<AllTimeTrackerSettings>
   ): Promise<void> {
-    if (client != null) await client.sendCommand("reset");
+    if (client != null) {
+      try {
+        await client.sendCommand("reset");
+      } catch (err) {
+        streamDeck.logger.error(err);
+      }
+    }
   }
 }
 type AllTimeTrackerSettings = {};

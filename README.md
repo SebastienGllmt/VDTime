@@ -27,15 +27,10 @@ These features will never be supported by design:
 
 VDTime Core can easily be run as a scheduled task that starts in the background whenever your logon. This is useful to ensure that any GUI you run can simply assume VDTime Core is running with the API available to call.
 
-```powershell
-$publishDir = Resolve-Path 'vdtime-core\bin\Release\net9.0-windows10.0.19041.0\win-x64\publish'
-$exe = Join-Path $publishDir 'vdtime-core.exe'
-$args = '--pipe vdtime-core'
+Run the following in an **NON** admin powershell
 
-$action = New-ScheduledTaskAction -Execute $exe -Argument $args
-$trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\\$env:USERNAME"
-Register-ScheduledTask -TaskName 'vdtime-core' -Action $action -Trigger $trigger -RunLevel Highest -Force
-```
+1. `./start-vdtime-task.ps1`
+2. `Start-ScheduledTask -TaskName 'vdtime-core'`
 
 ### API
 
@@ -120,17 +115,6 @@ The corresponding state transition is as follows:
 - Delete desktop: remove from set of tracked desktops
 - Metadata update: update name of tracked desktops (if required)
 
-## VDTime GUI
-
-VDTime GUI is a simple application (built with WinUI) that simply shows the current time you've spent on the current virtual desktop in a very small window.
-The goal is that you can easily pin this window somewhere on your screen you can glance to get an idea how long you've spent on the window, without it being too large to be distracting.
-
-### TODOs
-
-- [x] (critical) Create a VDtime GUI project in my monorepo
-- [x] (critical) Create a starter VDTime GUI program that can open and close (and does nothing else)
-- [ ] (medium) Placeholder graphics that have two text boxes: one for the desktop name, one for the time spent
-
 ## Build / Run
 
 1. Run `dotnet restore`
@@ -144,27 +128,3 @@ Run tests:
 
 - Run REST tests: `dotnet test vdtime-core.Tests/vdtime-core.Tests.csproj --filter "FullyQualifiedName=RestApiTests.AllEndpoints"`
 - Run Named Pipe tests: `dotnet test vdtime-core.Tests/vdtime-core.Tests.csproj --filter "FullyQualifiedName=NamedPipeTests.AllEndpoints"`
-
-### VDTime GUI only
-
-TODO
-
-### VDTime Core & GUI
-
-- Run: `./run-all.ps1 -Build -ShowBackendWindow`
-- Options:
-  - `-Port <int>` to change the API port (default 5055)
-  - `-Build` to build the solution before running
-  - `-ShowBackendWindow` to show the Core console window
-
-Examples:
-
-- `pwsh -f ./run-all.ps1`
-- `pwsh -f ./run-all.ps1 -Port 5056 -Build`
-
-## Implementation plan
-
-- [ ] A simple WinUI app that does nothing but opens and can be closed
-- [ ] A simple WinUI app that has two placeholder text boxes (current monitor, time spent) just using placeholder text that updates every second based on a mock API call that returns different random data every few seconds
-- [ ] A simple WinUI app that shows the currently selected desktop, and the time spent on it (by querying the API)
-- [ ] Run as a XBox Widget
