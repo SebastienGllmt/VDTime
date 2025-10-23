@@ -115,6 +115,10 @@ The corresponding state transition is as follows:
 - Delete desktop: remove from set of tracked desktops
 - Metadata update: update name of tracked desktops (if required)
 
+## VDTime Stream Deck plugin
+
+VDTime comes with a built-in UI which runs as a [Stream Deck](https://www.elgato.com/ww/en/p/stream-deck) plugin. Notably, you can still run this on your machine directly by using a [Virtual Stream Deck](https://www.elgato.com/ww/en/s/virtual-stream-deck)
+
 ## Build / Run
 
 1. Run `dotnet restore`
