@@ -6,57 +6,69 @@ public static class NamedPipeAdaptor
 {
   public static void createNamedPipeAdaptor(StateManager stateManager, string pipeName)
   {
+    // Fire-and-forget for console usage, keep behavior compatible
+    _ = RunAsync(stateManager, pipeName, CancellationToken.None);
+  }
+
+  // Async version for Worker Service hosting
+  public static async Task RunAsync(StateManager stateManager, string pipeName, CancellationToken cancellationToken)
+  {
     Console.WriteLine($"vdtime-core listening on named pipe: {pipeName}");
-    
-    // Start the named pipe server in a separate task to avoid blocking
-    Task.Run(async () =>
+    while (!cancellationToken.IsCancellationRequested)
     {
-      while (true)
+      try
       {
-        try
+        using var pipeServer = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Message);
+        Console.WriteLine("Waiting for connection...");
+        await pipeServer.WaitForConnectionAsync(cancellationToken);
+        Console.WriteLine("Client connected to named pipe");
+
+        using var reader = new StreamReader(pipeServer, Encoding.UTF8);
+        using var writer = new StreamWriter(pipeServer, Encoding.UTF8);
+
+        while (pipeServer.IsConnected && !cancellationToken.IsCancellationRequested)
         {
-          using var pipeServer = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Message);
-          Console.WriteLine("Waiting for connection...");
-          await pipeServer.WaitForConnectionAsync();
-          Console.WriteLine("Client connected to named pipe");
-          
-          using var reader = new StreamReader(pipeServer, Encoding.UTF8);
-          using var writer = new StreamWriter(pipeServer, Encoding.UTF8);
-          
-          while (pipeServer.IsConnected)
+          try
           {
-            try
+            Console.WriteLine("Waiting for command...");
+            var command = await reader.ReadLineAsync(cancellationToken);
+            Console.WriteLine($"ReadLineAsync returned: '{command}'");
+            if (string.IsNullOrEmpty(command))
             {
-              Console.WriteLine("Waiting for command...");
-              var command = await reader.ReadLineAsync();
-              Console.WriteLine($"ReadLineAsync returned: '{command}'");
-              if (string.IsNullOrEmpty(command))
-              {
-                Console.WriteLine("Client disconnected (empty command)");
-                break;
-              }
-              
-              Console.WriteLine($"Received command: {command}");
-              var response = await HandleCommand(stateManager, command);
-              await writer.WriteLineAsync(response);
-              await writer.FlushAsync();
-              Console.WriteLine($"Sent response: {response}");
-            }
-            catch (Exception ex)
-            {
-              Console.WriteLine($"Error handling command: {ex.Message}");
+              Console.WriteLine("Client disconnected (empty command)");
               break;
             }
+
+            Console.WriteLine($"Received command: {command}");
+            var response = await HandleCommand(stateManager, command);
+            await writer.WriteLineAsync(response);
+            await writer.FlushAsync();
+            Console.WriteLine($"Sent response: {response}");
           }
-          Console.WriteLine("Exiting connection loop");
+          catch (OperationCanceledException)
+          {
+            // Graceful shutdown
+            break;
+          }
+          catch (Exception ex)
+          {
+            Console.WriteLine($"Error handling command: {ex.Message}");
+            break;
+          }
         }
-        catch (Exception ex)
-        {
-          Console.WriteLine($"Named pipe error: {ex.Message}");
-          await Task.Delay(100); // Wait before retrying
-        }
+        Console.WriteLine("Exiting connection loop");
       }
-    });
+      catch (OperationCanceledException)
+      {
+        // Graceful shutdown
+        break;
+      }
+      catch (Exception ex)
+      {
+        Console.WriteLine($"Named pipe error: {ex.Message}");
+        await Task.Delay(100, cancellationToken); // Wait before retrying
+      }
+    }
   }
 
   private static async Task<string> HandleCommand(StateManager stateManager, string command)
