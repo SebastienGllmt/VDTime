@@ -5,7 +5,8 @@ using Microsoft.AspNetCore.Http;
 
 public static class RestAdaptor
 {
-  public static void createRestAdaptor(StateManager stateManager, int port) {
+  private static WebApplication BuildApp(StateManager stateManager, int port)
+  {
     var builder = WebApplication.CreateBuilder();
     builder.WebHost.UseUrls($"http://localhost:{port}");
     var app = builder.Build();
@@ -17,7 +18,6 @@ public static class RestAdaptor
     });
     app.MapGet("/curr_desktop", () =>
     {
-      
       return Results.Json(stateManager.getCurrentDesktop(), new JsonSerializerOptions { WriteIndented = false });
     });
     app.MapGet("/time_on", (HttpRequest req) =>
@@ -35,7 +35,26 @@ public static class RestAdaptor
       stateManager.reset();
       return Results.Ok();
     });
+    return app;
+  }
+
+  // Existing console usage (blocks)
+  public static void createRestAdaptor(StateManager stateManager, int port)
+  {
+    var app = BuildApp(stateManager, port);
     Console.WriteLine($"vdtime-core listening on http://localhost:{port}");
     app.Run();
+  }
+
+  // Async version for Worker Service hosting
+  public static async Task RunAsync(StateManager stateManager, int port, CancellationToken cancellationToken)
+  {
+    var app = BuildApp(stateManager, port);
+    Console.WriteLine($"vdtime-core listening on http://localhost:{port}");
+    using var _ = cancellationToken.Register(() =>
+    {
+      try { app.Lifetime.StopApplication(); } catch { }
+    });
+    await app.RunAsync();
   }
 }
