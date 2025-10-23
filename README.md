@@ -106,9 +106,75 @@ The corresponding state transition is as follows:
 - Delete desktop: remove from set of tracked desktops
 - Metadata update: update name of tracked desktops (if required)
 
-### TODOs
+## VDTime Service (Windows Service)
 
-- [ ] (low) option to start application when Windows boots
+The worker service hosts the same API as VDTime Core and can run as a Windows Service or console app. This allows you to start the service automatically in the background when you boot your machine.
+
+Important notes when installing as a Windows Service
+
+- Virtual desktop events are tied to the interactive user session. A service in Session 0 won’t receive them. Run the service under your user account, or use a Scheduled Task at user logon (recommended) to avoid Session 0.
+- Named pipes default security allows the creating user. If your client runs under a different account, adjust pipe ACLs (not needed when service and client run as the same user).
+
+### Install the service
+
+1. `dotnet publish vdtime-service -c Release -r win-x64 --self-contained false`
+2. Run the following Powershell script
+
+```powershell
+$publishDir = Resolve-Path 'vdtime-service\bin\Release\net9.0-windows10.0.19041.0\win-x64\publish'
+$exe = Join-Path $publishDir 'vdtime-service.exe'
+$args = '--mode pipe --pipe vdtime-core'  # or: --mode rest --port 5055
+
+# Use your user so it runs in the interactive session
+$cred = Get-Credential  # enter DOMAIN\\User or .\\User
+
+New-Service `
+  -Name 'vdtime-core' `
+  -BinaryPathName "`"$exe`" $args" `
+  -DisplayName 'vdtime core' `
+  -Credential $cred `
+  -StartupType Automatic
+
+Start-Service vdtime-core
+```
+
+### Manage service
+
+- Start/Stop: `Start-Service vdtime-core` / `Stop-Service vdtime-core`
+- Change args later: `sc.exe config vdtime-core binPath= "\"C:\\path\\vdtime-service.exe\" --mode rest --port 5055"`
+- Remove: `Stop-Service vdtime-core; sc.exe delete vdtime-core`
+
+### Call the service (pipe mode)
+
+See the API for more details
+
+```powershell
+$pipe = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'vdtime-core', [System.IO.Pipes.PipeDirection]::InOut)
+$pipe.Connect(3000)
+$w = New-Object System.IO.StreamWriter($pipe); $w.AutoFlush = $true
+$r = New-Object System.IO.StreamReader($pipe)
+$w.WriteLine('healthz'); $r.ReadLine()
+$pipe.Dispose()
+```
+
+Alternative: Scheduled Task at user logon (recommended)
+
+```powershell
+$publishDir = Resolve-Path 'vdtime-service\bin\Release\net9.0-windows10.0.19041.0\win-x64\publish'
+$exe = Join-Path $publishDir 'vdtime-service.exe'
+$args = '--mode pipe --pipe vdtime-core'
+
+$action = New-ScheduledTaskAction -Execute $exe -Argument $args
+$trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\\$env:USERNAME"
+Register-ScheduledTask -TaskName 'vdtime-core' -Action $action -Trigger $trigger -RunLevel Highest -Force
+```
+
+### Test in non-service mode
+
+Test the project by running directly (not as a service worker):
+
+- Run as console (named pipe): `dotnet run --project vdtime-service -- --mode pipe --pipe vdtime-core`
+- Run as console (REST): `dotnet run --project vdtime-service -- --mode rest --port 5055`
 
 ## VDTime GUI
 
